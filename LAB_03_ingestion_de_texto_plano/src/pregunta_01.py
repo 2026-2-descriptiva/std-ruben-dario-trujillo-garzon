@@ -1,3 +1,8 @@
+from pathlib import Path
+import pandas as pd
+import re
+
+
 def pregunta_01():
     """
     El archivo `data/clusters_report.txt` es un reporte de clústeres de
@@ -26,4 +31,60 @@ def pregunta_01():
         ...
     """
 
-    raise NotImplementedError
+    ruta = Path(__file__).parent.parent / "data" / "clusters_report.txt"
+
+    with open(ruta, "r", encoding="utf-8") as archivo:
+        lineas = archivo.readlines()
+
+    registros = []
+    cluster_actual = None
+
+    patron = re.compile(
+        r"^\s*(\d+)\s+(\d+)\s+([\d,]+)\s*%\s+(.*)$"
+    )
+
+    for linea in lineas:
+
+        coincidencia = patron.match(linea)
+
+        if coincidencia:
+
+            if cluster_actual is not None:
+                cluster_actual["principales_palabras_clave"] = " ".join(
+                    cluster_actual["principales_palabras_clave"]
+                )
+                registros.append(cluster_actual)
+
+            cluster_actual = {
+                "cluster": int(coincidencia.group(1)),
+                "cantidad_de_palabras_clave": int(coincidencia.group(2)),
+                "porcentaje_de_palabras_clave": float(
+                    coincidencia.group(3).replace(",", ".")
+                ),
+                "principales_palabras_clave": [coincidencia.group(4).strip()],
+            }
+
+        elif cluster_actual is not None and linea.strip():
+
+            cluster_actual["principales_palabras_clave"].append(
+                linea.strip()
+            )
+
+    if cluster_actual is not None:
+
+        cluster_actual["principales_palabras_clave"] = " ".join(
+            cluster_actual["principales_palabras_clave"]
+        )
+
+        registros.append(cluster_actual)
+
+    resultado = pd.DataFrame(registros)
+
+    resultado["principales_palabras_clave"] = (
+        resultado["principales_palabras_clave"]
+        .str.replace(r"\s+", " ", regex=True)
+        .str.strip()
+        .str.rstrip(".")
+    )
+
+    return resultado
