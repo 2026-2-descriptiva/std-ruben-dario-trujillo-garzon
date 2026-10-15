@@ -1,3 +1,7 @@
+from pathlib import Path
+import pandas as pd
+
+
 def pregunta_01():
     """
     Las frases de este laboratorio no están en una tabla, sino en miles de
@@ -26,4 +30,31 @@ def pregunta_01():
         ...
     """
 
-    raise NotImplementedError
+    ruta_base = Path(__file__).parent.parent
+
+    carpeta_datos = ruta_base / "data"
+    carpeta_salida = ruta_base / "submission"
+
+    carpeta_salida.mkdir(exist_ok=True)
+
+    for conjunto in sorted(["test", "train"]):
+
+        filas = []
+
+        for sentimiento in sorted(["negative", "neutral", "positive"]):
+
+            carpeta_sentimiento = carpeta_datos / conjunto / sentimiento
+
+            for archivo in sorted(carpeta_sentimiento.glob("*.txt")):
+
+                filas.append(
+                    {
+                        "phrase": archivo.read_text(encoding="utf-8").strip(),
+                        "target": sentimiento,
+                    }
+                )
+
+        pd.DataFrame(filas).to_csv(
+            carpeta_salida / f"{conjunto}_dataset.csv",
+            index=False,
+        )
