@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 def pregunta_02():
     """
     ¿Cuántas columnas tiene la tabla `data/tbl0.tsv`? Retorne la cantidad
@@ -8,4 +11,10 @@ def pregunta_02():
         4
     """
 
-    raise NotImplementedError
+    ruta = Path(__file__).parent.parent / "data" / "tbl0.tsv"
+
+    with open(ruta, "r", encoding="utf-8") as archivo:
+
+        primera_fila = archivo.readline().strip()
+
+    return len(primera_fila.split("\t"))

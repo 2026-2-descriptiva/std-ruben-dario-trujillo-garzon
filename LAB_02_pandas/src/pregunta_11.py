@@ -1,3 +1,7 @@
+from pathlib import Path
+import pandas as pd
+
+
 def pregunta_11():
     """
     En `data/tbl1.tsv`, cada valor de la columna `c0` aparece en varias
@@ -15,4 +19,16 @@ def pregunta_11():
         ...
     """
 
-    raise NotImplementedError
+    ruta = Path(__file__).parent.parent / "data" / "tbl1.tsv"
+
+    tabla = pd.read_csv(ruta, sep="\t")
+
+    resultado = (
+        tabla.groupby("c0")
+        .agg({
+            "c4": lambda letras: ",".join(sorted(letras))
+        })
+        .reset_index()
+    )
+
+    return resultado
