@@ -25,3 +25,9 @@
 --
 --  Escriba su consulta debajo de esta línea.
 --
+SELECT
+    CAST(strftime('%Y', c23) AS INTEGER) AS year,
+    AVG(c21) AS promedio
+FROM tbl2
+GROUP BY year
+ORDER BY year;
