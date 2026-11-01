@@ -1,3 +1,5 @@
+from pathlib import Path
+import matplotlib.pyplot as plt
 import pandas as pd
 
 
@@ -43,5 +45,156 @@ def build_cohort_analysis() -> pd.DataFrame:
         2022-01,1,26,100,0.26
         ...
     """
+    base = Path(__file__).parent.parent
 
-    raise NotImplementedError
+    df = pd.read_csv(
+        base / "data" / "sales.csv.gz",
+        compression="gzip",
+    )
+
+    df["OrderDate"] = pd.to_datetime(df["OrderDate"])
+    df["order_month"] = df["OrderDate"].dt.to_period("M")
+
+    primer_mes = (
+        df.groupby("CustomerID")["order_month"]
+        .min()
+    )
+
+    df["cohort_month"] = df["CustomerID"].map(primer_mes)
+
+    df["period_index"] = (
+        (df["order_month"].dt.year - df["cohort_month"].dt.year) * 12
+        + df["order_month"].dt.month
+        - df["cohort_month"].dt.month
+    )
+
+    cohort_size = (
+        primer_mes.groupby(primer_mes)
+        .size()
+    )
+
+    cohortes = (
+        df.groupby(["cohort_month", "period_index"])
+        ["CustomerID"]
+        .nunique()
+        .reset_index(name="active_customers")
+    )
+
+    cohortes["cohort_month"] = (
+        cohortes["cohort_month"]
+        .astype(str)
+    )
+
+    cohortes["cohort_size"] = cohortes[
+        "cohort_month"
+    ].map(
+        cohort_size.rename(index=str)
+    )
+
+    cohortes["retention_rate"] = (
+        cohortes["active_customers"]
+        / cohortes["cohort_size"]
+    )
+
+    cohortes = cohortes[
+        [
+            "cohort_month",
+            "period_index",
+            "active_customers",
+            "cohort_size",
+            "retention_rate",
+        ]
+    ]
+
+    cohortes = cohortes.sort_values(
+        ["cohort_month", "period_index"]
+    ).reset_index(drop=True)
+
+    # -------------------------
+    # Exportar CSV
+    # -------------------------
+
+    submission = base / "submission"
+    submission.mkdir(exist_ok=True)
+
+    cohortes.to_csv(
+        submission / "cohort_retention.csv",
+        index=False,
+    )
+
+    # -------------------------
+    # Heatmap
+    # -------------------------
+
+    heatmap = cohortes.pivot(
+        index="cohort_month",
+        columns="period_index",
+        values="retention_rate",
+    )
+
+    fig, ax = plt.subplots(
+        figsize=(
+            max(8, heatmap.shape[1]),
+            max(4, heatmap.shape[0] * 0.7),
+        )
+    )
+
+    grafico = ax.imshow(
+        heatmap,
+        cmap="YlGnBu",
+        aspect="auto",
+        vmin=0,
+        vmax=1,
+    )
+
+    grafico.cmap.set_bad("white")
+
+    ax.set_xticks(
+        range(len(heatmap.columns)),
+        heatmap.columns,
+    )
+
+    ax.set_yticks(
+        range(len(heatmap.index)),
+        heatmap.index,
+    )
+
+    ax.set_xlabel("Período")
+    ax.set_ylabel("Cohorte")
+    ax.set_title("Retención por cohorte")
+
+    for fila in range(heatmap.shape[0]):
+        for columna in range(heatmap.shape[1]):
+
+            valor = heatmap.iloc[fila, columna]
+
+            if pd.notna(valor):
+                ax.text(
+                    columna,
+                    fila,
+                    f"{valor:.0%}",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                )
+
+    fig.colorbar(
+        grafico,
+        ax=ax,
+        label="Retención",
+    )
+
+    fig.tight_layout()
+
+    fig.savefig(
+        submission / "cohort_retention_heatmap.png",
+        dpi=150,
+    )
+
+    plt.close()
+
+    return cohortes
+
+
+if __name__ == "__main__":
+    build_cohort_analysis()
